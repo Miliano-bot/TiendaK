@@ -24,7 +24,7 @@ function App() {
 
   return (
     <div>
-      <h1>Productos de prueba</h1>
+      <h1>Productos de prueba ayuda</h1>
       {productos.length === 0 && <p>No hay productos</p>}
       {productos.map(p => (
         <div key={p.idproducto} style={{border:'1px solid gray', margin:'5px', padding:'5px'}}>
