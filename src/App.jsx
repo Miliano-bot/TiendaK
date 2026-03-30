@@ -1,14 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
+import Dashboard from './pages/Dashboard';
+import Productos from './pages/Productos';
+import Ventas from './pages/Ventas';
+import Reportes from './pages/Reportes';
 
-const Menu = ({ setPage }) => {
+function App() {
+  const [page, setPage] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const renderPage = () => {
+    switch(page){
+      case 'dashboard': return <Dashboard />;
+      case 'productos': return <Productos />;
+      case 'ventas': return <Ventas />;
+      case 'reportes': return <Reportes />;
+      default: return <Dashboard />;
+    }
+  };
+
+  const titles = {
+    dashboard: 'Dashboard',
+    productos: 'Productos',
+    ventas: 'Ventas',
+    reportes: 'Reportes'
+  }
+
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+
   return (
-    <div className="flex justify-around bg-gray-200 p-2 fixed bottom-0 w-full">
-      <button onClick={() => setPage('dashboard')} className="flex-1 text-center p-2">🏠 Inicio</button>
-      <button onClick={() => setPage('productos')} className="flex-1 text-center p-2">📦 Productos</button>
-      <button onClick={() => setPage('ventas')} className="flex-1 text-center p-2">💰 Ventas</button>
-      <button onClick={() => setPage('reportes')} className="flex-1 text-center p-2">📊 Reportes</button>
+    <div className="flex">
+      <Sidebar isOpen={sidebarOpen} setPage={setPage} />
+      <div className="flex-1 min-h-screen bg-gray-50">
+        <Navbar toggleSidebar={toggleSidebar} title={titles[page]} />
+        <div className="p-4">{renderPage()}</div>
+      </div>
     </div>
   );
-};
+}
 
-export default Menu;
+export default App;
