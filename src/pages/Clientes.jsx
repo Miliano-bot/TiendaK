@@ -2,16 +2,27 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import Modal from '../components/Modal'
 
-const EMPTY = { nombre: '', email: '', telefono: '' }
+const ID_EMPRESA = 1 // 👈 cambia esto por el IdEmpresa de tu empresa
+
+const TIPOS_ID = ['Cédula', 'RUC', 'Pasaporte', 'Otro']
+
+const EMPTY = {
+  nombre:             '',
+  tipo_identificacion: '',
+  identificacion:     '',
+  telefono:           '',
+  correo:             '',
+  direccion:          '',
+}
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState(null)
-  const [modal, setModal]       = useState(false)
-  const [form, setForm]         = useState(EMPTY)
-  const [editId, setEditId]     = useState(null)
-  const [saving, setSaving]     = useState(false)
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState(null)
+  const [modal,    setModal]    = useState(false)
+  const [form,     setForm]     = useState(EMPTY)
+  const [editId,   setEditId]   = useState(null)
+  const [saving,   setSaving]   = useState(false)
 
   useEffect(() => { fetchClientes() }, [])
 
@@ -21,7 +32,8 @@ export default function Clientes() {
     const { data, error } = await supabase
       .from('clientes')
       .select('*')
-      .order('created_at', { ascending: false })
+      .eq('idempresa', ID_EMPRESA)
+      .order('nombre')
     if (error) setError(error.message)
     else setClientes(data)
     setLoading(false)
@@ -34,8 +46,15 @@ export default function Clientes() {
   }
 
   function openEdit(c) {
-    setForm({ nombre: c.nombre, email: c.email, telefono: c.telefono || '' })
-    setEditId(c.id)
+    setForm({
+      nombre:              c.nombre,
+      tipo_identificacion: c.tipo_identificacion || '',
+      identificacion:      c.identificacion      || '',
+      telefono:            c.telefono            || '',
+      correo:              c.correo              || '',
+      direccion:           c.direccion           || '',
+    })
+    setEditId(c.idcliente)
     setModal(true)
   }
 
@@ -45,19 +64,27 @@ export default function Clientes() {
     setEditId(null)
   }
 
+  function set(field, value) {
+    setForm(f => ({ ...f, [field]: value }))
+  }
+
   async function handleSave() {
     if (!form.nombre.trim()) return alert('El nombre es obligatorio')
     setSaving(true)
 
     const payload = {
-      nombre: form.nombre.trim(),
-      email: form.email.trim(),
-      telefono: form.telefono.trim(),
+      idempresa:           ID_EMPRESA,
+      nombre:              form.nombre.trim(),
+      tipo_identificacion: form.tipo_identificacion,
+      identificacion:      form.identificacion.trim(),
+      telefono:            form.telefono.trim(),
+      correo:              form.correo.trim(),
+      direccion:           form.direccion.trim(),
     }
 
     let error
     if (editId) {
-      ;({ error } = await supabase.from('clientes').update(payload).eq('id', editId))
+      ;({ error } = await supabase.from('clientes').update(payload).eq('idcliente', editId))
     } else {
       ;({ error } = await supabase.from('clientes').insert([payload]))
     }
@@ -68,8 +95,8 @@ export default function Clientes() {
   }
 
   async function handleDelete(id) {
-    if (!confirm('¿Eliminar este cliente?')) return
-    const { error } = await supabase.from('clientes').delete().eq('id', id)
+    if (!confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
+    const { error } = await supabase.from('clientes').delete().eq('idcliente', id)
     if (error) alert('Error al eliminar: ' + error.message)
     else fetchClientes()
   }
@@ -97,21 +124,34 @@ export default function Clientes() {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Email</th>
+                  <th>Identificación</th>
                   <th>Teléfono</th>
+                  <th>Correo</th>
+                  <th>Dirección</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {clientes.map(c => (
-                  <tr key={c.id}>
+                  <tr key={c.idcliente}>
                     <td style={{ fontWeight: 500 }}>{c.nombre}</td>
-                    <td style={{ color: 'var(--text2)' }}>{c.email}</td>
+                    <td style={{ color: 'var(--text2)' }}>
+                      {c.tipo_identificacion && (
+                        <span className="badge badge-success" style={{ marginRight: 6, fontSize: 10 }}>
+                          {c.tipo_identificacion}
+                        </span>
+                      )}
+                      {c.identificacion || '—'}
+                    </td>
                     <td style={{ color: 'var(--text2)' }}>{c.telefono || '—'}</td>
+                    <td style={{ color: 'var(--text2)' }}>{c.correo   || '—'}</td>
+                    <td style={{ color: 'var(--text2)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {c.direccion || '—'}
+                    </td>
                     <td>
                       <div className="actions">
-                        <button className="icon-btn" title="Editar" onClick={() => openEdit(c)}>✏️</button>
-                        <button className="icon-btn" title="Eliminar" onClick={() => handleDelete(c.id)}>🗑️</button>
+                        <button className="icon-btn" title="Editar"    onClick={() => openEdit(c)}>✏️</button>
+                        <button className="icon-btn" title="Eliminar"  onClick={() => handleDelete(c.idcliente)}>🗑️</button>
                       </div>
                     </td>
                   </tr>
@@ -129,29 +169,35 @@ export default function Clientes() {
           onSave={handleSave}
         >
           <div className="form-group">
-            <label>Nombre</label>
-            <input
-              value={form.nombre}
-              onChange={e => setForm({ ...form, nombre: e.target.value })}
-              placeholder="Nombre completo"
-            />
+            <label>Nombre *</label>
+            <input value={form.nombre} onChange={e => set('nombre', e.target.value)} placeholder="Nombre completo" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group">
+              <label>Tipo identificación</label>
+              <select value={form.tipo_identificacion} onChange={e => set('tipo_identificacion', e.target.value)}>
+                <option value="">-- Seleccionar --</option>
+                {TIPOS_ID.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Número</label>
+              <input value={form.identificacion} onChange={e => set('identificacion', e.target.value)} placeholder="0000000000" />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="form-group">
+              <label>Teléfono</label>
+              <input value={form.telefono} onChange={e => set('telefono', e.target.value)} placeholder="+593..." />
+            </div>
+            <div className="form-group">
+              <label>Correo</label>
+              <input type="email" value={form.correo} onChange={e => set('correo', e.target.value)} placeholder="correo@ejemplo.com" />
+            </div>
           </div>
           <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={e => setForm({ ...form, email: e.target.value })}
-              placeholder="correo@ejemplo.com"
-            />
-          </div>
-          <div className="form-group">
-            <label>Teléfono</label>
-            <input
-              value={form.telefono}
-              onChange={e => setForm({ ...form, telefono: e.target.value })}
-              placeholder="+593..."
-            />
+            <label>Dirección</label>
+            <input value={form.direccion} onChange={e => set('direccion', e.target.value)} placeholder="Dirección completa" />
           </div>
           {saving && <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8 }}>Guardando...</p>}
         </Modal>
