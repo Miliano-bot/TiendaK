@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import Modal from '../components/Modal'
 
-const ID_EMPRESA = 1 // 👈 cambia esto por el IdEmpresa de tu empresa
+const ID_EMPRESA = 1 
 
 const TIPOS_ID = ['Cédula', 'RUC', 'Pasaporte', 'Otro']
 
