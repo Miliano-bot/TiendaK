@@ -11,7 +11,7 @@ import Empresa from './pages/Empresa'
 import Bodega from './pages/Bodega'
 import Proveedores from './pages/Proveedores'
 import Gastos from './pages/Gastos'
-import CorteCaja from './pages/CorteCaja'
+import CorteCaja from './pages/cortecaja'
 import Finanzas from './pages/Finanzas'
 import './App.css'
 
