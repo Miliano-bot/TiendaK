@@ -113,7 +113,7 @@ export default function CorteCaja() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button className="btn btn-primary" onClick={hacerCorte} disabled={guardando} style={{ padding: '10px 20px' }}>
-              {guardando ? 'Guardando...' : '🏧 Registrar corte'}
+              {guardando ? 'Guardando...' : '🏧 Registrar corte.'}
             </button>
             {ok && <span style={{ fontSize: 13, color: 'var(--success)' }}>✅ Corte registrado</span>}
           </div>
