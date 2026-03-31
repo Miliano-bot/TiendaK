@@ -9,6 +9,10 @@ import Reportes from './pages/Reportes'
 import Maestros from './pages/Maestros'
 import Empresa from './pages/Empresa'
 import Bodega from './pages/Bodega'
+import Proveedores from './pages/Proveedores'
+import Gastos from './pages/Gastos.jsx/index.js'
+import CorteCaja from './pages/CorteCaja'
+import Finanzas from './pages/Finanzas.jsx'
 import './App.css'
 
 export default function App() {
@@ -28,53 +32,45 @@ export default function App() {
     else setCollapsed(c => !c)
   }
 
-  function navigateTo(p) {
-    setPage(p)
-    if (isMobile) setSidebarOpen(false)
+  function navigateTo(p) { setPage(p); if (isMobile) setSidebarOpen(false) }
+
+  const titles = {
+    dashboard:  'Dashboard',
+    ventas:     'Caja / Ventas',
+    productos:  'Productos',
+    clientes:   'Clientes',
+    bodega:     'Bodega',
+    proveedores:'Proveedores',
+    gastos:     'Gastos operativos',
+    cortecaja:  'Corte de caja',
+    finanzas:   'Finanzas',
+    reportes:   'Reportes',
+    maestros:   'Maestro de datos',
+    empresa:    'Mi empresa',
   }
 
   const pages = {
-    dashboard: <Dashboard onNavigate={navigateTo} />,
-    ventas:    <Ventas />,
-    productos: <Productos />,
-    clientes:  <Clientes />,
-    reportes:  <Reportes />,
-    maestros:  <Maestros />,
-    empresa:   <Empresa />,
-    bodega:    <Bodega />,
-  }
-
-  const titles = {
-    dashboard: 'Dashboard',
-    ventas:    'Caja / Ventas',
-    productos: 'Productos',
-    clientes:  'Clientes',
-    reportes:  'Reportes',
-    maestros:  'Maestro de datos',
-    empresa:   'Mi empresa',
-    bodega:    'Bodega',
+    dashboard:   <Dashboard onNavigate={navigateTo} />,
+    ventas:      <Ventas />,
+    productos:   <Productos />,
+    clientes:    <Clientes />,
+    bodega:      <Bodega />,
+    proveedores: <Proveedores />,
+    gastos:      <Gastos />,
+    cortecaja:   <CorteCaja />,
+    finanzas:    <Finanzas />,
+    reportes:    <Reportes />,
+    maestros:    <Maestros />,
+    empresa:     <Empresa />,
   }
 
   return (
     <div className="app">
-      {/* Overlay mobile */}
-      <div
-        className={`sidebar-overlay ${isMobile && sidebarOpen ? 'visible' : ''}`}
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      <Sidebar
-        collapsed={!isMobile && collapsed}
-        mobileOpen={isMobile && sidebarOpen}
-        page={page}
-        setPage={navigateTo}
-      />
-
+      <div className={`sidebar-overlay ${isMobile && sidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)} />
+      <Sidebar collapsed={!isMobile && collapsed} mobileOpen={isMobile && sidebarOpen} page={page} setPage={navigateTo} />
       <div className="main">
         <Topbar title={titles[page]} onToggle={toggleSidebar} />
-        <div className="content">
-          {pages[page]}
-        </div>
+        <div className="content">{pages[page]}</div>
       </div>
     </div>
   )
