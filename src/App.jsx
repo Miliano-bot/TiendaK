@@ -19,7 +19,7 @@ export default function App() {
   }
 
   const titles = {
-    dashboard: 'Dashboard',
+    dashboard: 'Home',
     productos: 'Productos',
     clientes:  'Clientes',
     ventas:    'Caja / Ventas',
