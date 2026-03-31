@@ -1,6 +1,7 @@
 export default function Sidebar({ collapsed, page, setPage }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+    { id: 'ventas',    label: 'Caja',      icon: '🛒' },
     { id: 'productos', label: 'Productos',  icon: '📦' },
     { id: 'clientes',  label: 'Clientes',   icon: '👥' },
   ]
@@ -11,7 +12,6 @@ export default function Sidebar({ collapsed, page, setPage }) {
         <div className="logo-icon">🛍</div>
         <span className="logo-text">MiTienda</span>
       </div>
-
       <nav>
         {navItems.map(item => (
           <button
