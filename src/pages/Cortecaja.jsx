@@ -103,7 +103,7 @@ export default function CorteCaja() {
           {efectivoReal !== '' && (
             <div style={{ background: Math.abs(diferencia) < 0.01 ? 'rgba(76,175,135,0.1)' : diferencia > 0 ? 'rgba(108,99,255,0.1)' : 'rgba(224,82,82,0.1)', border: `1px solid ${Math.abs(diferencia) < 0.01 ? 'rgba(76,175,135,0.3)' : diferencia > 0 ? 'rgba(108,99,255,0.3)' : 'rgba(224,82,82,0.3)'}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 13, color: 'var(--text2)' }}>
-                {Math.abs(diferencia) < 0.01 ? '✅ Cuadra perfectamente.' : diferencia > 0 ? '📈 Sobrante' : '📉 Faltante'}
+                {Math.abs(diferencia) < 0.01 ? '✅ Cuadra perfectamente' : diferencia > 0 ? '📈 Sobrante' : '📉 Faltante'}
               </span>
               <span style={{ fontSize: 18, fontWeight: 700, color: Math.abs(diferencia) < 0.01 ? 'var(--success)' : diferencia > 0 ? 'var(--accent)' : 'var(--danger)' }}>
                 {diferencia > 0 ? '+' : ''}${diferencia.toFixed(2)}
@@ -113,7 +113,7 @@ export default function CorteCaja() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button className="btn btn-primary" onClick={hacerCorte} disabled={guardando} style={{ padding: '10px 20px' }}>
-              {guardando ? 'Guardando...' : '🏧 Registrar corte.'}
+              {guardando ? 'Guardando...' : '🏧 Registrar corte'}
             </button>
             {ok && <span style={{ fontSize: 13, color: 'var(--success)' }}>✅ Corte registrado</span>}
           </div>
