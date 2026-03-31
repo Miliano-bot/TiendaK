@@ -10,9 +10,9 @@ import Maestros from './pages/Maestros'
 import Empresa from './pages/Empresa'
 import Bodega from './pages/Bodega'
 import Proveedores from './pages/Proveedores'
-import Gastos from './pages/Gastos.jsx/index.js'
+import Gastos from './pages/Gastos'
 import CorteCaja from './pages/CorteCaja'
-import Finanzas from './pages/Finanzas.jsx'
+import Finanzas from './pages/Finanzas'
 import './App.css'
 
 export default function App() {
