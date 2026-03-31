@@ -120,9 +120,9 @@ export default function Productos() {
 
     let error
     if (editId) {
-      ;({ error } = await supabase.from('Productos').update(payload).eq('idproducto', editId))
+      ;({ error } = await supabase.from('productos').update(payload).eq('idproducto', editId))
     } else {
-      ;({ error } = await supabase.from('Productos').insert([payload]))
+      ;({ error } = await supabase.from('productos').insert([payload]))
     }
 
     if (error) alert('Error: ' + error.message)
@@ -136,7 +136,7 @@ export default function Productos() {
       : '¿Marcar como discontinuado?'
     if (!confirm(msg)) return
     const { error } = await supabase
-      .from('Productos')
+      .from('productos')
       .update({ discontinuado: !p.discontinuado })
       .eq('idproducto', p.idproducto)
     if (error) alert('Error: ' + error.message)
