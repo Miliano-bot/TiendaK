@@ -235,7 +235,7 @@ export default function Bodega() {
 
       {/* Modal actualizar precio */}
       {modalPrecio && (
-        <Modal title="📝 Actualizar precio de producto" onClose={()=>setModalPrecio(false)} onSave={handleGuardarPrecio}>
+        <Modal title="📝 Actualizar precio de producto." onClose={()=>setModalPrecio(false)} onSave={handleGuardarPrecio}>
           <p style={{ fontSize:12,color:'var(--text2)',marginBottom:12 }}>El cambio se guarda en el historial de precios para seguimiento.</p>
           <div className="form-group">
             <label>Producto *</label>
