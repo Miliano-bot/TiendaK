@@ -32,7 +32,7 @@ function SeccionCategorias() {
   return (
     <div className="panel" style={{marginBottom:20}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <div><p style={{fontWeight:600,fontSize:15}}>🏷️ Categorías</p><p style={{fontSize:12,color:'var(--text2)'}}>Para organizar tus productos</p></div>
+        <div><p style={{fontWeight:600,fontSize:15}}>🏷️ Categorías de productos</p><p style={{fontSize:12,color:'var(--text2)'}}>Para organizar tus productos</p></div>
         <button className="btn btn-primary" onClick={openNew}>+ Nueva</button>
       </div>
       {loading ? <div className="loading">Cargando...</div> : categorias.length===0 ? (
@@ -64,6 +64,74 @@ function SeccionCategorias() {
   )
 }
 
+function SeccionCategoriasGasto() {
+  const [categorias,setCategorias]=useState([]); const [loading,setLoading]=useState(true)
+  const [modal,setModal]=useState(false); const [form,setForm]=useState({nombre:'',descripcion:'',activo:true}); const [editId,setEditId]=useState(null); const [saving,setSaving]=useState(false)
+
+  useEffect(()=>{fetch()},[])
+  async function fetch() { setLoading(true); const{data}=await supabase.from('categoriasgasto').select('*').order('nombre'); setCategorias(data||[]); setLoading(false) }
+  function openNew()   { setForm({nombre:'',descripcion:'',activo:true}); setEditId(null); setModal(true) }
+  function openEdit(c) { setForm({nombre:c.nombre,descripcion:c.descripcion||'',activo:c.activo}); setEditId(c.idcategoria); setModal(true) }
+  function close()     { setModal(false); setForm({nombre:'',descripcion:'',activo:true}); setEditId(null) }
+
+  async function save() {
+    if (!form.nombre.trim()) return alert('El nombre es obligatorio')
+    setSaving(true)
+    const payload={nombre:form.nombre.trim(),descripcion:form.descripcion.trim(),activo:form.activo}
+    const{error}=editId ? await supabase.from('categoriasgasto').update(payload).eq('idcategoria',editId) : await supabase.from('categoriasgasto').insert([payload])
+    if(error) alert('Error: '+error.message); else { close(); fetch() }
+    setSaving(false)
+  }
+
+  async function toggleActivo(c) {
+    await supabase.from('categoriasgasto').update({activo:!c.activo}).eq('idcategoria',c.idcategoria)
+    fetch()
+  }
+
+  return (
+    <div className="panel" style={{marginBottom:20}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <div><p style={{fontWeight:600,fontSize:15}}>💸 Categorías de gastos</p><p style={{fontSize:12,color:'var(--text2)'}}>Categorías disponibles al registrar gastos</p></div>
+        <button className="btn btn-primary" onClick={openNew}>+ Nueva</button>
+      </div>
+      {loading ? <div className="loading">Cargando...</div> : categorias.length===0 ? (
+        <div className="empty-state"><div className="empty-icon">💸</div>No hay categorías de gasto</div>
+      ) : (
+        <div className="table-wrapper">
+          <table>
+            <thead><tr><th>Nombre</th><th>Descripción</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              {categorias.map(c=>(
+                <tr key={c.idcategoria}>
+                  <td style={{fontWeight:500}}>{c.nombre}</td>
+                  <td style={{color:'var(--text2)'}}>{c.descripcion||'—'}</td>
+                  <td>
+                    <span className={`badge ${c.activo?'badge-success':'badge-danger'}`} style={{cursor:'pointer'}} onClick={()=>toggleActivo(c)}>
+                      {c.activo?'Activo':'Inactivo'}
+                    </span>
+                  </td>
+                  <td><div className="actions"><button className="icon-btn" onClick={()=>openEdit(c)}>✏️</button></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {modal && (
+        <Modal title={editId?'Editar categoría':'Nueva categoría de gasto'} onClose={close} onSave={save}>
+          <div className="form-group"><label>Nombre *</label><input value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))} placeholder="Ej: Arriendo" /></div>
+          <div className="form-group"><label>Descripción</label><input value={form.descripcion} onChange={e=>setForm(f=>({...f,descripcion:e.target.value}))} placeholder="Opcional" /></div>
+          <div className="form-group" style={{display:'flex',alignItems:'center',gap:8}}>
+            <input type="checkbox" id="activo" checked={form.activo} onChange={e=>setForm(f=>({...f,activo:e.target.checked}))} />
+            <label htmlFor="activo" style={{marginBottom:0,cursor:'pointer'}}>Activa (aparece al registrar gastos)</label>
+          </div>
+          {saving && <p style={{fontSize:13,color:'var(--text2)',marginTop:8}}>Guardando...</p>}
+        </Modal>
+      )}
+    </div>
+  )
+}
+
 function SeccionUnidades() {
   const [unidades,setUnidades]=useState([]); const [loading,setLoading]=useState(true)
   const [modal,setModal]=useState(false); const [form,setForm]=useState({nombre:'',descripcion:''}); const [editId,setEditId]=useState(null); const [saving,setSaving]=useState(false)
@@ -72,13 +140,8 @@ function SeccionUnidades() {
 
   async function fetchUnidades() {
     setLoading(true)
-    const{data,error}=await supabase.from('unidades').select('*').order('nombre')
-    if(error) {
-      // Si la tabla no existe, crear datos locales
-      setUnidades([])
-    } else {
-      setUnidades(data||[])
-    }
+    const{data}=await supabase.from('unidades').select('*').order('nombre')
+    setUnidades(data||[])
     setLoading(false)
   }
 
@@ -107,24 +170,8 @@ function SeccionUnidades() {
         <div><p style={{fontWeight:600,fontSize:15}}>📏 Unidades de medida</p><p style={{fontSize:12,color:'var(--text2)'}}>Unidades disponibles al crear productos</p></div>
         <button className="btn btn-primary" onClick={openNew}>+ Nueva</button>
       </div>
-
       {loading ? <div className="loading">Cargando...</div> : unidades.length===0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📏</div>
-          <p style={{marginBottom:12}}>No hay unidades. Crea la tabla primero:</p>
-          <div style={{background:'var(--bg3)',borderRadius:8,padding:12,textAlign:'left',fontSize:12,fontFamily:'monospace',color:'var(--text2)',marginBottom:12}}>
-            CREATE TABLE unidades (<br/>
-            &nbsp;&nbsp;idunidad SERIAL PRIMARY KEY,<br/>
-            &nbsp;&nbsp;nombre VARCHAR(50) NOT NULL,<br/>
-            &nbsp;&nbsp;descripcion VARCHAR(200)<br/>
-            );<br/>
-            ALTER TABLE unidades ENABLE ROW LEVEL SECURITY;<br/>
-            CREATE POLICY "allow all" ON unidades FOR ALL USING (true) WITH CHECK (true);<br/><br/>
-            INSERT INTO unidades (nombre) VALUES<br/>
-            ('Unidad'),('Docena'),('Par'),('Paquete'),('Caja'),<br/>
-            ('Kg'),('Gramo'),('Libra'),('Litro'),('Ml');
-          </div>
-        </div>
+        <div className="empty-state"><div className="empty-icon">📏</div>No hay unidades</div>
       ) : (
         <div className="table-wrapper">
           <table>
@@ -156,6 +203,7 @@ export default function Maestros() {
   return (
     <div>
       <SeccionCategorias />
+      <SeccionCategoriasGasto />
       <SeccionUnidades />
     </div>
   )

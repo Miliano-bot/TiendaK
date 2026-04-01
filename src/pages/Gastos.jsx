@@ -1,48 +1,76 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import Modal from '../components/Modal'
-import { formatFecha } from '../utils/fecha'
+import { formatFecha, hoyEC, inicioDiaEC, finDiaEC } from '../utils/fecha'
 
 const ID_EMPRESA = 1
-const CATEGORIAS_GASTO = ['Arriendo', 'Servicios básicos', 'Internet', 'Transporte', 'Publicidad', 'Insumos', 'Mantenimiento', 'Personal', 'Impuestos', 'Otro']
-const EMPTY = { categoria: '', descripcion: '', monto: '', fecha: new Date().toISOString().split('T')[0] }
+const EMPTY = { idcategoria: '', descripcion: '', monto: '', fecha_desde: hoyEC(), fecha_hasta: '' }
 
 export default function Gastos() {
-  const [gastos,  setGastos]  = useState([])
-  const [loading, setLoading] = useState(true)
-  const [modal,   setModal]   = useState(false)
-  const [form,    setForm]    = useState(EMPTY)
-  const [editId,  setEditId]  = useState(null)
-  const [saving,  setSaving]  = useState(false)
-  const [desde,   setDesde]   = useState(() => { const d = new Date(); d.setDate(d.getDate()-30); return d.toISOString().split('T')[0] })
-  const [hasta,   setHasta]   = useState(() => new Date().toISOString().split('T')[0])
+  const [gastos,      setGastos]      = useState([])
+  const [categorias,  setCategorias]  = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [modal,       setModal]       = useState(false)
+  const [form,        setForm]        = useState(EMPTY)
+  const [editId,      setEditId]      = useState(null)
+  const [saving,      setSaving]      = useState(false)
+  const [desde,       setDesde]       = useState(() => { const d = new Date(); d.setDate(d.getDate()-30); return d.toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'}) })
+  const [hasta,       setHasta]       = useState(hoyEC)
 
+  useEffect(() => { fetchCategorias() }, [])
   useEffect(() => { fetchGastos() }, [desde, hasta])
+
+  async function fetchCategorias() {
+    const { data } = await supabase.from('categoriasgasto').select('*').eq('activo', true).order('nombre')
+    setCategorias(data || [])
+  }
 
   async function fetchGastos() {
     setLoading(true)
-    const { data } = await supabase.from('gastos').select('*')
+    const { data } = await supabase.from('gastos').select('*, categoriasgasto(nombre)')
       .eq('idempresa', ID_EMPRESA)
-      .gte('fecha', desde + 'T00:00:00')
-      .lte('fecha', hasta + 'T23:59:59')
+      .gte('fecha', inicioDiaEC(desde))
+      .lte('fecha', finDiaEC(hasta))
       .order('fecha', { ascending: false })
     setGastos(data || [])
     setLoading(false)
   }
 
   function openNew()   { setForm(EMPTY); setEditId(null); setModal(true) }
-  function openEdit(g) { setForm({ categoria: g.categoria, descripcion: g.descripcion||'', monto: g.monto, fecha: g.fecha.split('T')[0] }); setEditId(g.idgasto); setModal(true) }
-  function close()     { setModal(false); setForm(EMPTY); setEditId(null) }
-  function setF(f,v)   { setForm(p => ({ ...p, [f]: v })) }
+  function openEdit(g) {
+    setForm({
+      idcategoria: g.idcategoria || '',
+      descripcion: g.descripcion || '',
+      monto:       g.monto,
+      fecha_desde: g.fecha_desde ? g.fecha_desde.split('T')[0] : g.fecha.split('T')[0],
+      fecha_hasta: g.fecha_hasta ? g.fecha_hasta.split('T')[0] : '',
+    })
+    setEditId(g.idgasto)
+    setModal(true)
+  }
+  function close()   { setModal(false); setForm(EMPTY); setEditId(null) }
+  function setF(f,v) { setForm(p => ({ ...p, [f]: v })) }
 
   async function save() {
-    if (!form.categoria) return alert('Selecciona una categoría')
+    if (!form.idcategoria) return alert('Selecciona una categoría')
     if (!form.monto || parseFloat(form.monto) <= 0) return alert('El monto debe ser mayor a 0')
+    if (!form.fecha_desde) return alert('Ingresa la fecha de inicio')
     setSaving(true)
-    const payload = { idempresa: ID_EMPRESA, categoria: form.categoria, descripcion: form.descripcion.trim(), monto: parseFloat(form.monto), fecha: form.fecha + 'T12:00:00' }
+
+    const payload = {
+      idempresa:   ID_EMPRESA,
+      idcategoria: parseInt(form.idcategoria),
+      descripcion: form.descripcion.trim(),
+      monto:       parseFloat(form.monto),
+      fecha:       form.fecha_desde + 'T12:00:00-05:00',
+      fecha_desde: form.fecha_desde,
+      fecha_hasta: form.fecha_hasta || null,
+    }
+
     const { error } = editId
       ? await supabase.from('gastos').update(payload).eq('idgasto', editId)
       : await supabase.from('gastos').insert([payload])
+
     if (error) alert('Error: ' + error.message)
     else { close(); fetchGastos() }
     setSaving(false)
@@ -55,17 +83,26 @@ export default function Gastos() {
     else fetchGastos()
   }
 
-  const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto), 0)
+  const atajo = (days) => {
+    const h = hoyEC()
+    const d = new Date(); d.setDate(d.getDate() - days)
+    setHasta(h); setDesde(d.toLocaleDateString('en-CA', { timeZone: 'America/Guayaquil' }))
+  }
 
-  // Agrupar por categoría
+  const totalGastos = gastos.reduce((s, g) => s + parseFloat(g.monto), 0)
   const porCategoria = {}
-  gastos.forEach(g => { porCategoria[g.categoria] = (porCategoria[g.categoria] || 0) + parseFloat(g.monto) })
-  const topCategorias = Object.entries(porCategoria).sort((a,b) => b[1]-a[1])
+  gastos.forEach(g => {
+    const nombre = g.categoriasgasto?.nombre || 'Sin categoría'
+    porCategoria[nombre] = (porCategoria[nombre] || 0) + parseFloat(g.monto)
+  })
+  const topCategorias = Object.entries(porCategoria).sort((a, b) => b[1] - a[1])
   const maxCat = topCategorias[0]?.[1] || 1
 
-  const atajo = (days) => {
-    const h = new Date(); const d = new Date(); d.setDate(d.getDate()-days)
-    setHasta(h.toISOString().split('T')[0]); setDesde(d.toISOString().split('T')[0])
+  // Verificar si un gasto está activo hoy
+  function esActivo(g) {
+    const hoy = hoyEC()
+    if (g.fecha_hasta && g.fecha_hasta < hoy) return false
+    return true
   }
 
   return (
@@ -93,44 +130,44 @@ export default function Gastos() {
       </div>
 
       <div className="cards-grid" style={{ marginBottom: 16 }}>
-        <div className="metric-card">
+        <div className="metric-card" style={{ cursor: 'default' }}>
           <div className="metric-label">Total gastos</div>
           <div className="metric-value" style={{ color: 'var(--danger)' }}>${totalGastos.toFixed(2)}</div>
           <div className="metric-sub">{gastos.length} registros</div>
         </div>
-        <div className="metric-card">
-          <div className="metric-label">Mayor gasto</div>
+        <div className="metric-card" style={{ cursor: 'default' }}>
+          <div className="metric-label">Mayor categoría</div>
           <div className="metric-value" style={{ fontSize: 16 }}>{topCategorias[0]?.[0] || '—'}</div>
           <div className="metric-sub">${(topCategorias[0]?.[1] || 0).toFixed(2)}</div>
         </div>
       </div>
 
       <div className="two-col" style={{ marginBottom: 16 }}>
-        {/* Por categoría */}
         <div className="panel">
           <div className="panel-title">Por categoría</div>
           {topCategorias.length === 0
             ? <p style={{ color: 'var(--text2)', fontSize: 13 }}>Sin gastos</p>
             : topCategorias.map(([cat, val]) => (
               <div className="bar-row" key={cat}>
-                <span className="bar-label">{cat.substring(0,12)}</span>
-                <div className="bar-bg"><div className="bar-fill" style={{ width: `${Math.max(5,(val/maxCat)*100)}%`, background: 'var(--danger)' }} /></div>
+                <span className="bar-label">{cat.substring(0, 12)}</span>
+                <div className="bar-bg"><div className="bar-fill" style={{ width: `${Math.max(5, (val / maxCat) * 100)}%`, background: 'var(--danger)' }} /></div>
                 <span className="bar-val">${val.toFixed(0)}</span>
               </div>
             ))
           }
         </div>
-
-        {/* Lista reciente */}
         <div className="panel">
           <div className="panel-title">Últimos gastos</div>
           <div className="recent-list">
-            {gastos.slice(0,5).map(g => (
+            {gastos.slice(0, 5).map(g => (
               <div className="recent-item" key={g.idgasto}>
                 <div className="ri-icon" style={{ background: 'rgba(224,82,82,0.15)', color: 'var(--danger)' }}>💸</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="ri-name">{g.descripcion || g.categoria}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text2)' }}>{g.categoria} · {formatFecha(g.fecha)}</p>
+                  <p className="ri-name">{g.descripcion || g.categoriasgasto?.nombre || '—'}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text2)' }}>
+                    {g.categoriasgasto?.nombre} · {formatFecha(g.fecha)}
+                    {g.fecha_hasta && <span style={{ color: esActivo(g) ? 'var(--success)' : 'var(--text2)' }}> · hasta {formatFecha(g.fecha_hasta)}</span>}
+                  </p>
                 </div>
                 <span style={{ color: 'var(--danger)', fontWeight: 600, fontSize: 13 }}>${parseFloat(g.monto).toFixed(2)}</span>
               </div>
@@ -145,14 +182,16 @@ export default function Gastos() {
         ) : (
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th></th></tr></thead>
+              <thead><tr><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Desde</th><th>Hasta</th><th>Estado</th><th></th></tr></thead>
               <tbody>
                 {gastos.map(g => (
                   <tr key={g.idgasto}>
-                    <td style={{ color: 'var(--text2)', fontSize: 12, whiteSpace: 'nowrap' }}>{formatFecha(g.fecha)}</td>
-                    <td><span className="badge badge-danger">{g.categoria}</span></td>
+                    <td><span className="badge badge-danger">{g.categoriasgasto?.nombre || '—'}</span></td>
                     <td style={{ color: 'var(--text2)' }}>{g.descripcion || '—'}</td>
                     <td style={{ fontWeight: 600, color: 'var(--danger)' }}>${parseFloat(g.monto).toFixed(2)}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text2)' }}>{formatFecha(g.fecha_desde || g.fecha)}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text2)' }}>{g.fecha_hasta ? formatFecha(g.fecha_hasta) : <span style={{ color: 'var(--success)' }}>Sin fin</span>}</td>
+                    <td><span className={`badge ${esActivo(g) ? 'badge-success' : 'badge-danger'}`}>{esActivo(g) ? 'Activo' : 'Vencido'}</span></td>
                     <td><div className="actions">
                       <button className="icon-btn" onClick={() => openEdit(g)}>✏️</button>
                       <button className="icon-btn" onClick={() => del(g.idgasto)}>🗑️</button>
@@ -169,15 +208,29 @@ export default function Gastos() {
         <Modal title={editId ? 'Editar gasto' : 'Nuevo gasto'} onClose={close} onSave={save}>
           <div className="form-group">
             <label>Categoría *</label>
-            <select value={form.categoria} onChange={e => setF('categoria', e.target.value)}>
+            <select value={form.idcategoria} onChange={e => setF('idcategoria', e.target.value)}>
               <option value="">-- Seleccionar --</option>
-              {CATEGORIAS_GASTO.map(c => <option key={c}>{c}</option>)}
+              {categorias.map(c => <option key={c.idcategoria} value={c.idcategoria}>{c.nombre}</option>)}
             </select>
           </div>
-          <div className="form-group"><label>Descripción</label><input value={form.descripcion} onChange={e => setF('descripcion', e.target.value)} placeholder="Ej: Pago luz enero" /></div>
+          <div className="form-group">
+            <label>Descripción</label>
+            <input value={form.descripcion} onChange={e => setF('descripcion', e.target.value)} placeholder="Ej: Pago luz enero" />
+          </div>
+          <div className="form-group">
+            <label>Monto ($) *</label>
+            <input type="number" min="0" step="0.01" value={form.monto} onChange={e => setF('monto', e.target.value)} placeholder="0.00" />
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="form-group"><label>Monto ($) *</label><input type="number" min="0" step="0.01" value={form.monto} onChange={e => setF('monto', e.target.value)} placeholder="0.00" /></div>
-            <div className="form-group"><label>Fecha</label><input type="date" value={form.fecha} onChange={e => setF('fecha', e.target.value)} /></div>
+            <div className="form-group">
+              <label>Fecha inicio *</label>
+              <input type="date" value={form.fecha_desde} onChange={e => setF('fecha_desde', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Fecha fin <span style={{ color: 'var(--text2)', fontWeight: 400 }}>(opcional)</span></label>
+              <input type="date" value={form.fecha_hasta} onChange={e => setF('fecha_hasta', e.target.value)} />
+              <p style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>Déjalo vacío si es recurrente sin fin</p>
+            </div>
           </div>
           {saving && <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8 }}>Guardando...</p>}
         </Modal>
