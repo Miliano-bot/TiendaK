@@ -1,19 +1,19 @@
-import { formatFechaHora, inicioDiaEC, finDiaEC, hoyEC } from '../utils/fecha'
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import { formatFechaHora } from '../utils/fecha'
 
 const ID_EMPRESA = 1
 
 function StatCard({ icon, label, value, sub, color, onClick }) {
   return (
     <div className="metric-card" onClick={onClick}>
-      <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8 }}>
-        <div style={{ width:36,height:36,borderRadius:10,background:`${color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18 }}>{icon}</div>
-        {onClick && <span style={{ fontSize:10,color:'var(--text2)',opacity:0.6 }}>ver →</span>}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:`${color}22`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18 }}>{icon}</div>
+        {onClick && <span style={{ fontSize:10, color:'var(--text2)', opacity:0.6 }}>ver →</span>}
       </div>
-      <div style={{ fontSize:22,fontWeight:700,color:color||'var(--text)',marginBottom:2 }}>{value}</div>
-      <div style={{ fontSize:12,color:'var(--text2)' }}>{label}</div>
-      {sub && <div style={{ fontSize:11,color:'var(--text2)',marginTop:2 }}>{sub}</div>}
+      <div style={{ fontSize:22, fontWeight:700, color:color||'var(--text)', marginBottom:2 }}>{value}</div>
+      <div style={{ fontSize:12, color:'var(--text2)' }}>{label}</div>
+      {sub && <div style={{ fontSize:11, color:'var(--text2)', marginTop:2 }}>{sub}</div>}
     </div>
   )
 }
@@ -33,27 +33,29 @@ export default function Dashboard({ onNavigate }) {
     if (periodo==='semana') { const d=new Date(ahora); d.setDate(d.getDate()-7);  fechaDesde=d.toISOString() }
     if (periodo==='mes')    { const d=new Date(ahora); d.setDate(d.getDate()-30); fechaDesde=d.toISOString() }
 
-    let qV=supabase.from('ventas').select('total,fecha').eq('idempresa',ID_EMPRESA)
-    let qI=supabase.from('inventariohistorico').select('total_invertido').eq('idempresa',ID_EMPRESA).eq('tipo_movimiento','entrada')
-    let qG=supabase.from('gastos').select('monto').eq('idempresa',ID_EMPRESA)
-
+    let qV = supabase.from('ventas').select('total,fecha').eq('idempresa',ID_EMPRESA)
+    let qI = supabase.from('inventariohistorico').select('total_invertido').eq('idempresa',ID_EMPRESA).eq('tipo_movimiento','entrada')
+    let qG = supabase.from('gastos').select('monto').eq('idempresa',ID_EMPRESA)
     if (fechaDesde) { qV=qV.gte('fecha',fechaDesde); qI=qI.gte('fecha',fechaDesde); qG=qG.gte('fecha',fechaDesde) }
 
     const [
       {data:ventas},{data:entradas},{data:gastos},
-      {count:totalProds},{count:stockBajo},{count:sinStock},
-      {count:totalCli},{data:detalle},{data:ultimasV},
-      {count:alertasStock},
+      {data:todosProds},
+      {count:totalCli},
+      {data:detalle},
+      {data:ultimasV},
     ] = await Promise.all([
       qV, qI, qG,
-      supabase.from('productos').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA).eq('discontinuado',false),
-      supabase.from('productos').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA).eq('discontinuado',false).lte('cantidad',5).gt('cantidad',0),
-      supabase.from('productos').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA).eq('discontinuado',false).eq('cantidad',0),
+      supabase.from('productos').select('idproducto,cantidad,stock_minimo,discontinuado').eq('idempresa',ID_EMPRESA),
       supabase.from('clientes').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA),
       supabase.from('ventasdetalle').select('idproducto,cantidad,precio,productos(nombre)').limit(300),
       supabase.from('ventas').select('idventa,total,fecha,clientes(nombre)').eq('idempresa',ID_EMPRESA).order('fecha',{ascending:false}).limit(5),
-      supabase.from('productos').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA).eq('discontinuado',false).eq('cantidad',0),
     ])
+
+    const prodsActivos  = (todosProds||[]).filter(p=>!p.discontinuado)
+    const totalProds    = prodsActivos.length
+    const sinStock      = prodsActivos.filter(p=>p.cantidad===0).length
+    const stockBajo     = prodsActivos.filter(p=>p.cantidad>0 && p.stock_minimo>0 && p.cantidad<=p.stock_minimo).length
 
     const totalVentas  = ventas?.reduce((s,v)=>s+parseFloat(v.total),0)||0
     const totalInv     = entradas?.reduce((s,e)=>s+parseFloat(e.total_invertido||0),0)||0
@@ -83,12 +85,12 @@ export default function Dashboard({ onNavigate }) {
     </div>
   )
 
-  const s=stats
-  const maxTop=s.topProductos[0]?.cantidad||1
+  const s = stats
+  const maxTop = s.topProductos[0]?.cantidad||1
 
   return (
     <div>
-      {/* Período */}
+      {/* Selector período */}
       <div style={{ display:'flex',gap:0,marginBottom:16,background:'var(--bg2)',borderRadius:10,padding:4,border:'1px solid var(--border)' }}>
         {periodos.map(p=>(
           <button key={p.id} onClick={()=>setPeriodo(p.id)} style={{
@@ -104,25 +106,30 @@ export default function Dashboard({ onNavigate }) {
         <StatCard icon="💰" label="Ventas" value={`$${s.totalVentas.toFixed(2)}`} sub={`${s.cantVentas} transacciones`} color="var(--success)" onClick={()=>onNavigate('finanzas')} />
         <StatCard icon="📈" label="Ganancia neta" value={`$${s.gananciaNeta.toFixed(2)}`} sub={`Inv: $${s.totalInv.toFixed(0)} · Gastos: $${s.totalGastos.toFixed(0)}`} color={s.gananciaNeta>=0?'var(--success)':'var(--danger)'} onClick={()=>onNavigate('finanzas')} />
       </div>
-
       <div className="cards-grid" style={{ marginBottom:16 }}>
         <StatCard icon="👥" label="Clientes" value={s.totalCli||0} color="#60b8e0" onClick={()=>onNavigate('clientes')} />
-        <StatCard icon="📦" label="Productos" value={s.totalProds||0} sub={`${s.sinStock||0} sin stock`} color="var(--accent)" onClick={()=>onNavigate('productos')} />
+        <StatCard icon="📦" label="Productos" value={s.totalProds||0} sub={s.sinStock>0?`${s.sinStock} sin stock`:undefined} color="var(--accent)" onClick={()=>onNavigate('productos')} />
       </div>
 
-      {/* Alertas */}
+      {/* Alertas stock — ambas llevan a Bodega */}
       {(s.sinStock>0||s.stockBajo>0) && (
         <div style={{ display:'flex',gap:10,marginBottom:16,flexWrap:'wrap' }}>
-          {s.sinStock>0 && (
-            <div onClick={()=>onNavigate('productos')} style={{ flex:1,minWidth:140,background:'rgba(224,82,82,0.1)',border:'1px solid rgba(224,82,82,0.3)',borderRadius:10,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10 }}>
+          {s.sinStock>0&&(
+            <div onClick={()=>onNavigate('bodega')} style={{ flex:1,minWidth:140,background:'rgba(224,82,82,0.1)',border:'1px solid rgba(224,82,82,0.3)',borderRadius:10,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10 }}>
               <span style={{ fontSize:22 }}>🚨</span>
-              <div><p style={{ fontSize:13,fontWeight:600,color:'var(--danger)' }}>{s.sinStock} sin stock</p><p style={{ fontSize:11,color:'var(--text2)' }}>toca para ver</p></div>
+              <div>
+                <p style={{ fontSize:13,fontWeight:600,color:'var(--danger)' }}>{s.sinStock} sin stock</p>
+                <p style={{ fontSize:11,color:'var(--text2)' }}>toca para reabastecer</p>
+              </div>
             </div>
           )}
-          {s.stockBajo>0 && (
+          {s.stockBajo>0&&(
             <div onClick={()=>onNavigate('bodega')} style={{ flex:1,minWidth:140,background:'rgba(245,166,35,0.1)',border:'1px solid rgba(245,166,35,0.3)',borderRadius:10,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:10 }}>
               <span style={{ fontSize:22 }}>⚠️</span>
-              <div><p style={{ fontSize:13,fontWeight:600,color:'var(--warn)' }}>{s.stockBajo} stock bajo</p><p style={{ fontSize:11,color:'var(--text2)' }}>reabastecer</p></div>
+              <div>
+                <p style={{ fontSize:13,fontWeight:600,color:'var(--warn)' }}>{s.stockBajo} stock bajo</p>
+                <p style={{ fontSize:11,color:'var(--text2)' }}>toca para reabastecer</p>
+              </div>
             </div>
           )}
         </div>
