@@ -1,3 +1,4 @@
+import { formatFechaHora, formatFecha } from '../utils/fecha'
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
@@ -74,7 +75,7 @@ function ReporteVentas() {
                 {ventas.map(v => (
                   <tr key={v.idventa}>
                     <td style={{ color: 'var(--text2)', fontFamily: 'monospace' }}>#{v.idventa}</td>
-                    <td style={{ color: 'var(--text2)' }}>{new Date(v.fecha).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                    <td style={{ color: 'var(--text2)' }}>{new Date(v.fecha).toLocaleString('es-EC', {timeZone:'America/Guayaquil', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
                     <td>{v.clientes?.nombre || <span style={{ color: 'var(--text2)', fontStyle: 'italic' }}>Consumidor final</span>}</td>
                     <td style={{ fontWeight: 600, color: 'var(--success)' }}>${parseFloat(v.total).toFixed(2)}</td>
                   </tr>
@@ -133,7 +134,7 @@ function ReporteInventario() {
               <tbody>
                 {movimientos.map(m => (
                   <tr key={m.idmovimiento}>
-                    <td style={{ color: 'var(--text2)', fontSize: 12 }}>{new Date(m.fecha).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td style={{ color: 'var(--text2)', fontSize: 12 }}>{formatFechaHora(m.fecha)}</td>
                     <td style={{ fontWeight: 500 }}>{m.productos?.nombre || '—'}</td>
                     <td><span className={`badge ${m.tipo_movimiento === 'entrada' ? 'badge-success' : 'badge-warn'}`}>{m.tipo_movimiento === 'entrada' ? '📥 Entrada' : '📤 Salida'}</span></td>
                     <td>{m.cantidad}</td>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import Modal from '../components/Modal'
+import { formatFecha } from '../utils/fecha'
 
 const ID_EMPRESA = 1
 const CATEGORIAS_GASTO = ['Arriendo', 'Servicios básicos', 'Internet', 'Transporte', 'Publicidad', 'Insumos', 'Mantenimiento', 'Personal', 'Impuestos', 'Otro']
@@ -129,7 +130,7 @@ export default function Gastos() {
                 <div className="ri-icon" style={{ background: 'rgba(224,82,82,0.15)', color: 'var(--danger)' }}>💸</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="ri-name">{g.descripcion || g.categoria}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text2)' }}>{g.categoria} · {new Date(g.fecha).toLocaleDateString('es-EC',{day:'2-digit',month:'short'})}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text2)' }}>{g.categoria} · {formatFecha(g.fecha)}</p>
                 </div>
                 <span style={{ color: 'var(--danger)', fontWeight: 600, fontSize: 13 }}>${parseFloat(g.monto).toFixed(2)}</span>
               </div>
@@ -148,7 +149,7 @@ export default function Gastos() {
               <tbody>
                 {gastos.map(g => (
                   <tr key={g.idgasto}>
-                    <td style={{ color: 'var(--text2)', fontSize: 12, whiteSpace: 'nowrap' }}>{new Date(g.fecha).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric'})}</td>
+                    <td style={{ color: 'var(--text2)', fontSize: 12, whiteSpace: 'nowrap' }}>{formatFecha(g.fecha)}</td>
                     <td><span className="badge badge-danger">{g.categoria}</span></td>
                     <td style={{ color: 'var(--text2)' }}>{g.descripcion || '—'}</td>
                     <td style={{ fontWeight: 600, color: 'var(--danger)' }}>${parseFloat(g.monto).toFixed(2)}</td>

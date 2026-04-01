@@ -141,7 +141,7 @@ export default function Finanzas() {
             ? <p style={{ color: 'var(--text2)', fontSize: 13 }}>Sin datos</p>
             : d.diasOrdenados.map(([dia, val]) => (
               <div className="bar-row" key={dia}>
-                <span className="bar-label" style={{ width: 70 }}>{new Date(dia+'T12:00:00').toLocaleDateString('es-EC',{day:'2-digit',month:'short'})}</span>
+                <span className="bar-label" style={{ width: 70 }}>{new Date(dia+'T12:00:00').toLocaleDateString('es-EC',{timeZone:'America/Guayaquil',day:'2-digit',month:'short'})}</span>
                 <div className="bar-bg"><div className="bar-fill" style={{ width:`${Math.max(3,(val/maxDia)*100)}%`, background:'var(--success)' }} /></div>
                 <span className="bar-val">${val.toFixed(0)}</span>
               </div>

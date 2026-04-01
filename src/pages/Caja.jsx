@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatFechaHora, inicioDiaEC, finDiaEC, hoyEC } from '../utils/fecha'
 import { supabase } from '../supabaseClient'
 
 const ID_EMPRESA = 1
@@ -15,9 +16,9 @@ export default function CorteCaja() {
   useEffect(() => { fetchCortes(); calcularHoy() }, [])
 
   async function calcularHoy() {
-    const hoy   = new Date().toISOString().split('T')[0]
-    const desde = hoy + 'T00:00:00'
-    const hasta = hoy + 'T23:59:59'
+    const hoy   = hoyEC()
+    const desde = inicioDiaEC(hoy)
+    const hasta = finDiaEC(hoy)
 
     const [{ data: ventas }, { data: gastos }] = await Promise.all([
       supabase.from('ventas').select('total').eq('idempresa', ID_EMPRESA).gte('fecha', desde).lte('fecha', hasta),
@@ -64,7 +65,7 @@ export default function CorteCaja() {
 
       {/* Resumen del día */}
       <div className="panel" style={{ marginBottom: 16 }}>
-        <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Resumen de hoy — {new Date().toLocaleDateString('es-EC',{weekday:'long',day:'numeric',month:'long'})}</p>
+        <p style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Resumen de hoy — {new Date().toLocaleDateString('es-EC',{timeZone:'America/Guayaquil',weekday:'long',day:'numeric',month:'long'})}</p>
 
         <div className="cards-grid" style={{ marginBottom: 16 }}>
           <div className="metric-card" style={{ cursor: 'default' }}>
@@ -134,7 +135,7 @@ export default function CorteCaja() {
                   const dif = parseFloat(c.diferencia || 0)
                   return (
                     <tr key={c.idcorte}>
-                      <td style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{new Date(c.fecha).toLocaleDateString('es-EC',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+                      <td style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{formatFechaHora(c.fecha)}</td>
                       <td style={{ color: 'var(--success)', fontWeight: 600 }}>${parseFloat(c.total_ventas).toFixed(2)}</td>
                       <td style={{ color: 'var(--danger)' }}>${parseFloat(c.total_gastos).toFixed(2)}</td>
                       <td style={{ color: 'var(--accent)' }}>${(parseFloat(c.total_ventas)-parseFloat(c.total_gastos)).toFixed(2)}</td>

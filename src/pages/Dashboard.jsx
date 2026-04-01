@@ -1,3 +1,4 @@
+import { formatFechaHora, inicioDiaEC, finDiaEC, hoyEC } from '../utils/fecha'
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
@@ -51,7 +52,7 @@ export default function Dashboard({ onNavigate }) {
       supabase.from('clientes').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA),
       supabase.from('ventasdetalle').select('idproducto,cantidad,precio,productos(nombre)').limit(300),
       supabase.from('ventas').select('idventa,total,fecha,clientes(nombre)').eq('idempresa',ID_EMPRESA).order('fecha',{ascending:false}).limit(5),
-      supabase.from('productos').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA).eq('discontinuado',false).filter('cantidad','lte','stock_minimo'),
+      supabase.from('productos').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA).eq('discontinuado',false).eq('cantidad',0),
     ])
 
     const totalVentas  = ventas?.reduce((s,v)=>s+parseFloat(v.total),0)||0
@@ -153,7 +154,7 @@ export default function Dashboard({ onNavigate }) {
                   <div className="ri-icon" style={{ background:`${colors[i%5]}22`,color:colors[i%5] }}>🧾</div>
                   <div style={{ flex:1,minWidth:0 }}>
                     <p className="ri-name" style={{ overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{v.clientes?.nombre||'Consumidor final'}</p>
-                    <p style={{ fontSize:10,color:'var(--text2)' }}>{new Date(v.fecha).toLocaleDateString('es-EC',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
+                    <p style={{ fontSize:10,color:'var(--text2)' }}>{formatFechaHora(v.fecha)}</p>
                   </div>
                   <span className="ri-val">${parseFloat(v.total).toFixed(2)}</span>
                 </div>
