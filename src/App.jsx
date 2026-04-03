@@ -13,6 +13,7 @@ import Proveedores from './pages/Proveedores'
 import Gastos from './pages/Gastos'
 import CorteCaja from './pages/Caja'
 import Finanzas from './pages/Finanzas'
+import { useNotificaciones } from './hooks/useNotificaciones'
 import './App.css'
 
 export default function App() {
@@ -20,6 +21,8 @@ export default function App() {
   const [collapsed,   setCollapsed]   = useState(false)
   const [isMobile,    setIsMobile]    = useState(window.innerWidth <= 768)
   const [page,        setPage]        = useState('dashboard')
+
+  const { notifs, totalNum, refresh: refreshNotifs } = useNotificaciones()
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 768)
@@ -32,31 +35,34 @@ export default function App() {
     else setCollapsed(c => !c)
   }
 
-  function navigateTo(p) { setPage(p); if (isMobile) setSidebarOpen(false) }
+  function navigateTo(p) {
+    setPage(p)
+    if (isMobile) setSidebarOpen(false)
+  }
 
   const titles = {
-    dashboard:  'Dashboard',
-    ventas:     'Caja / Ventas',
-    productos:  'Productos',
-    clientes:   'Clientes',
-    bodega:     'Bodega',
-    proveedores:'Proveedores',
-    gastos:     'Gastos operativos',
-    cortecaja:  'Corte de caja',
-    finanzas:   'Finanzas',
-    reportes:   'Reportes',
-    maestros:   'Maestro de datos',
-    empresa:    'Mi empresa',
+    dashboard:   'Dashboard',
+    ventas:      'Caja / Ventas',
+    productos:   'Productos',
+    clientes:    'Clientes',
+    bodega:      'Bodega',
+    proveedores: 'Proveedores',
+    gastos:      'Gastos',
+    cortecaja:   'Corte de caja',
+    finanzas:    'Finanzas',
+    reportes:    'Reportes',
+    maestros:    'Maestro de datos',
+    empresa:     'Mi empresa',
   }
 
   const pages = {
     dashboard:   <Dashboard onNavigate={navigateTo} />,
-    ventas:      <Ventas />,
+    ventas:      <Ventas onNavigate={navigateTo} onVentaRealizada={refreshNotifs} />,
     productos:   <Productos />,
     clientes:    <Clientes />,
-    bodega:      <Bodega />,
+    bodega:      <Bodega onEntradaRegistrada={refreshNotifs} />,
     proveedores: <Proveedores />,
-    gastos:      <Gastos />,
+    gastos:      <Gastos onCambio={refreshNotifs} />,
     cortecaja:   <CorteCaja />,
     finanzas:    <Finanzas />,
     reportes:    <Reportes />,
@@ -69,7 +75,13 @@ export default function App() {
       <div className={`sidebar-overlay ${isMobile && sidebarOpen ? 'visible' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar collapsed={!isMobile && collapsed} mobileOpen={isMobile && sidebarOpen} page={page} setPage={navigateTo} />
       <div className="main">
-        <Topbar title={titles[page]} onToggle={toggleSidebar} />
+        <Topbar
+          title={titles[page]}
+          onToggle={toggleSidebar}
+          notifs={notifs}
+          totalNum={totalNum}
+          onNavigate={navigateTo}
+        />
         <div className="content">{pages[page]}</div>
       </div>
     </div>

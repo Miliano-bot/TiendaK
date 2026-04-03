@@ -9,8 +9,20 @@ export function ahoraEC() {
 // Formatear fecha de Supabase para mostrar en Ecuador
 export function formatFecha(isoString, opciones = {}) {
   if (!isoString) return '—'
-  const defaults = { timeZone: TZ, day: '2-digit', month: 'short', year: 'numeric' }
-  return new Date(isoString).toLocaleDateString('es-EC', { ...defaults, ...opciones })
+
+  const defaults = {
+    timeZone: TZ,
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }
+
+  // 🔥 FIX: detectar fechas tipo YYYY-MM-DD
+  const fecha = (typeof isoString === 'string' && isoString.length === 10)
+    ? new Date(isoString + 'T00:00:00') // 👈 evita el desfase
+    : new Date(isoString)
+
+  return fecha.toLocaleDateString('es-EC', { ...defaults, ...opciones })
 }
 
 export function formatFechaHora(isoString) {

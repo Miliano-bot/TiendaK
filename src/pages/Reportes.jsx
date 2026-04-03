@@ -112,14 +112,15 @@ function ReporteVentas() {
 
     // Agrupar por día
     const ventasPorDia={}, gastosPorDia={}
-    ventasData?.forEach(v => {
-      const dia = new Date(v.fecha).toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'})
-      ventasPorDia[dia]=(ventasPorDia[dia]||0)+parseFloat(v.total)
-    })
-    gastosData?.forEach(g => {
-      const dia = new Date(g.fecha).toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'})
-      gastosPorDia[dia]=(gastosPorDia[dia]||0)+parseFloat(g.monto)
-    })
+ventasData?.forEach(v => {
+  const dia = v.fecha.split('T')[0]
+  ventasPorDia[dia]=(ventasPorDia[dia]||0)+parseFloat(v.total)
+})
+
+gastosData?.forEach(g => {
+  const dia = g.fecha.split('T')[0]
+  gastosPorDia[dia]=(gastosPorDia[dia]||0)+parseFloat(g.monto)
+})
 
     const diasSet=new Set([...Object.keys(ventasPorDia),...Object.keys(gastosPorDia)])
     const grafica=[...diasSet].sort().map(dia=>({
