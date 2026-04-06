@@ -153,7 +153,7 @@ export default function Dashboard({ onNavigate }) {
 
       <div className="two-col">
         <div className="panel">
-          <div className="panel-title">🏆 Más vendidosss</div>
+          <div className="panel-title">🏆 Más vendidos</div>
           {s.topProductos.length===0
             ? <p style={{ color:'var(--text2)',fontSize:13 }}>Sin ventas en este período</p>
             : s.topProductos.map((p,i)=>(
@@ -167,7 +167,7 @@ export default function Dashboard({ onNavigate }) {
           }
         </div>
         <div className="panel">
-          <div className="panel-title">🧾 Últimas ventasss</div>
+          <div className="panel-title">🧾 Últimas ventas</div>
           <div className="recent-list">
             {s.ultimasVentas.length===0
               ? <p style={{ color:'var(--text2)',fontSize:13 }}>Sin ventas aún</p>
