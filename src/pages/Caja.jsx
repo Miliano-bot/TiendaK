@@ -10,12 +10,13 @@ function ModalDetalleCorre({ corte, onClose }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const dia = corte.fecha.split('T')[0]
+    // Usar isoADiaEC para obtener el día correcto del corte
+    const dia = new Date(corte.fecha).toLocaleDateString('en-CA',{timeZone:'America/Guayaquil'})
     Promise.all([
       supabase.from('ventas').select('idventa,total,fecha,clientes(nombre)').eq('idempresa',ID_EMPRESA)
-        .gte('fecha', inicioDiaEC(dia)).lte('fecha', finDiaEC(dia)).order('fecha'),
+        .gte('fecha',inicioDiaEC(dia)).lte('fecha',finDiaEC(dia)).order('fecha'),
       supabase.from('gastos').select('monto,descripcion,categoriasgasto(nombre)').eq('idempresa',ID_EMPRESA)
-        .gte('fecha', inicioDiaEC(dia)).lte('fecha', finDiaEC(dia)),
+        .gte('fecha',inicioDiaEC(dia)).lte('fecha',finDiaEC(dia)).eq('tipo','unico'),
     ]).then(([{data:v},{data:g}])=>{ setVentas(v||[]); setGastos(g||[]); setLoading(false) })
   },[])
 
@@ -30,13 +31,13 @@ function ModalDetalleCorre({ corte, onClose }) {
               <div style={{ marginBottom:12 }}>
                 {ventas.map(v=>(
                   <div key={v.idventa} style={{ display:'flex',justifyContent:'space-between',padding:'6px 10px',background:'var(--bg3)',borderRadius:6,marginBottom:4,fontSize:13 }}>
-                    <span style={{ color:'var(--text2)' }}>{v.clientes?.nombre||'Consumidor final'}</span>
+                    <span style={{ color:'var(--text2)' }}>{v.clientes?.nombre||'Consumidor final'} · {formatFechaHora(v.fecha)}</span>
                     <span style={{ color:'var(--success)',fontWeight:600 }}>${parseFloat(v.total).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
             )}
-            <p style={{ fontSize:13,fontWeight:600,marginBottom:8 }}>Gastos ({gastos.length})</p>
+            <p style={{ fontSize:13,fontWeight:600,marginBottom:8 }}>Gastos pagados ({gastos.length})</p>
             {gastos.length===0?<p style={{ color:'var(--text2)',fontSize:13,marginBottom:12 }}>Sin gastos ese día</p>:(
               <div style={{ marginBottom:12 }}>
                 {gastos.map((g,i)=>(
@@ -48,25 +49,23 @@ function ModalDetalleCorre({ corte, onClose }) {
               </div>
             )}
             <div style={{ borderTop:'1px solid var(--border)',paddingTop:12,display:'flex',flexDirection:'column',gap:6 }}>
-              <div style={{ display:'flex',justifyContent:'space-between',fontSize:13 }}>
-                <span style={{ color:'var(--text2)' }}>Total ventas</span>
-                <span style={{ color:'var(--success)',fontWeight:600 }}>${parseFloat(corte.total_ventas).toFixed(2)}</span>
-              </div>
-              <div style={{ display:'flex',justifyContent:'space-between',fontSize:13 }}>
-                <span style={{ color:'var(--text2)' }}>Total gastos</span>
-                <span style={{ color:'var(--danger)',fontWeight:600 }}>-${parseFloat(corte.total_gastos).toFixed(2)}</span>
-              </div>
-              <div style={{ display:'flex',justifyContent:'space-between',fontSize:13 }}>
-                <span style={{ color:'var(--text2)' }}>Efectivo esperado</span>
-                <span style={{ color:'var(--accent)',fontWeight:600 }}>${(parseFloat(corte.total_ventas)-parseFloat(corte.total_gastos)).toFixed(2)}</span>
-              </div>
-              <div style={{ display:'flex',justifyContent:'space-between',fontSize:14,marginTop:4,paddingTop:8,borderTop:'1px solid var(--border)' }}>
+              {[
+                ['Total ventas',   `$${parseFloat(corte.total_ventas).toFixed(2)}`,  'var(--success)'],
+                ['Total gastos',   `-$${parseFloat(corte.total_gastos).toFixed(2)}`, 'var(--danger)'],
+                ['Efectivo esperado', `$${(parseFloat(corte.total_ventas)-parseFloat(corte.total_gastos)).toFixed(2)}`, 'var(--accent)'],
+              ].map(([k,v,c])=>(
+                <div key={k} style={{ display:'flex',justifyContent:'space-between',fontSize:13 }}>
+                  <span style={{ color:'var(--text2)' }}>{k}</span>
+                  <span style={{ color:c,fontWeight:600 }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ display:'flex',justifyContent:'space-between',fontSize:14,marginTop:6,paddingTop:8,borderTop:'1px solid var(--border)' }}>
                 <span style={{ fontWeight:600 }}>Efectivo real</span>
                 <span style={{ fontWeight:700,fontSize:16 }}>${parseFloat(corte.efectivo_real).toFixed(2)}</span>
               </div>
               <div style={{ display:'flex',justifyContent:'space-between',fontSize:14 }}>
                 <span style={{ fontWeight:600 }}>Diferencia</span>
-                <span style={{ fontWeight:700,color: parseFloat(corte.diferencia)===0?'var(--success)':parseFloat(corte.diferencia)>0?'var(--accent)':'var(--danger)' }}>
+                <span style={{ fontWeight:700,color:parseFloat(corte.diferencia)===0?'var(--success)':parseFloat(corte.diferencia)>0?'var(--accent)':'var(--danger)' }}>
                   {parseFloat(corte.diferencia)>0?'+':''}${parseFloat(corte.diferencia).toFixed(2)}
                 </span>
               </div>
@@ -93,11 +92,15 @@ export default function CorteCaja() {
 
   async function calcularHoy() {
     const hoy = hoyEC()
+    const desde = inicioDiaEC(hoy)
+    const hasta  = finDiaEC(hoy)
+
     const [{ data:ventas },{ data:gastos }]=await Promise.all([
-      supabase.from('ventas').select('total').eq('idempresa',ID_EMPRESA).gte('fecha',inicioDiaEC(hoy)).lte('fecha',finDiaEC(hoy)),
-      // Solo gastos realmente pagados hoy (tipo unico registrados hoy)
-      supabase.from('gastos').select('monto').eq('idempresa',ID_EMPRESA).eq('tipo','unico').gte('fecha',inicioDiaEC(hoy)).lte('fecha',finDiaEC(hoy)),
+      supabase.from('ventas').select('total').eq('idempresa',ID_EMPRESA).gte('fecha',desde).lte('fecha',hasta),
+      // Solo gastos únicos pagados hoy (incluye recurrentes confirmados ese día)
+      supabase.from('gastos').select('monto').eq('idempresa',ID_EMPRESA).eq('tipo','unico').gte('fecha',desde).lte('fecha',hasta),
     ])
+
     setResumenHoy({
       ventas:    ventas?.reduce((s,v)=>s+parseFloat(v.total),0)||0,
       gastos:    gastos?.reduce((s,g)=>s+parseFloat(g.monto),0)||0,
@@ -137,11 +140,11 @@ export default function CorteCaja() {
       <div className="section-header"><h2>🏧 Corte de caja</h2></div>
 
       <div className="panel" style={{ marginBottom:16 }}>
-        <p style={{ fontWeight:600,fontSize:15,marginBottom:14 }}>
+        <p style={{ fontWeight:600,fontSize:15,marginBottom:8 }}>
           Resumen de hoy — {new Date().toLocaleDateString('es-EC',{timeZone:'America/Guayaquil',weekday:'long',day:'numeric',month:'long'})}
         </p>
         <p style={{ fontSize:12,color:'var(--text2)',marginBottom:14 }}>
-          ⚠️ Solo se suman los gastos efectivamente pagados hoy (pagos únicos y recurrentes confirmados).
+          Solo se suman los gastos efectivamente pagados hoy.
         </p>
 
         <div className="cards-grid" style={{ marginBottom:16 }}>
@@ -169,7 +172,9 @@ export default function CorteCaja() {
           <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12 }}>
             <div className="form-group" style={{ margin:0 }}>
               <label>Efectivo real en caja ($) *</label>
-              <input type="number" min="0" step="0.01" value={efectivoReal} onChange={e=>{setEfectivoReal(e.target.value);setOk(false)}} placeholder="Cuenta el dinero físico"
+              <input type="number" min="0" step="0.01" value={efectivoReal}
+                onChange={e=>{setEfectivoReal(e.target.value);setOk(false)}}
+                placeholder="Cuenta el dinero físico"
                 style={{ padding:'9px 12px',background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:13,outline:'none',width:'100%' }} />
             </div>
             <div className="form-group" style={{ margin:0 }}>
@@ -182,7 +187,7 @@ export default function CorteCaja() {
           {efectivoReal!==''&&(
             <div style={{ background:Math.abs(diferencia)<0.01?'rgba(76,175,135,0.1)':diferencia>0?'rgba(108,99,255,0.1)':'rgba(224,82,82,0.1)', border:`1px solid ${Math.abs(diferencia)<0.01?'rgba(76,175,135,0.3)':diferencia>0?'rgba(108,99,255,0.3)':'rgba(224,82,82,0.3)'}`, borderRadius:8,padding:'10px 14px',marginBottom:12,display:'flex',justifyContent:'space-between',alignItems:'center' }}>
               <span style={{ fontSize:13,color:'var(--text2)' }}>
-                {Math.abs(diferencia)<0.01?'✅ Cuadra':''}
+                {Math.abs(diferencia)<0.01?'✅ Cuadra perfectamente':''}
                 {diferencia>0.01?'📈 Sobrante':''}
                 {diferencia<-0.01?'📉 Faltante':''}
               </span>

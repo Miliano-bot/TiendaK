@@ -327,10 +327,6 @@ export default function Productos() {
               <input type="number" min="0" step="0.01" value={form.precio} onChange={e=>setF('precio',e.target.value)} placeholder="0.00" />
             </div>
             <div className="form-group">
-              <label>{editId ? 'Stock actual' : 'Cantidad inicial'}</label>
-              <input type="number" min="0" value={form.cantidad} onChange={e=>setF('cantidad',e.target.value)} placeholder="0" />
-            </div>
-            <div className="form-group">
               <label>Unidad</label>
               <select value={form.unidad} onChange={e=>setF('unidad',e.target.value)}>
                 {unidades.length > 0

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import { formatFechaHora } from '../utils/fecha'
+import { formatFechaHora, getRangoFechas } from '../utils/fecha'
 
 const ID_EMPRESA = 1
 
@@ -18,38 +18,6 @@ function StatCard({ icon, label, value, sub, color, onClick }) {
   )
 }
 
-function getFechaDesde(periodo) {
-  const tz = 'America/Guayaquil'
-  const ahora = new Date()
-  const hoy = ahora.toLocaleDateString('en-CA', { timeZone: tz })
-
-  if (periodo === 'hoy') return hoy + 'T00:00:00-05:00'
-
-  if (periodo === 'semana') {
-    const d = new Date(ahora)
-    const diaSemana = d.toLocaleDateString('es-EC', { timeZone: tz, weekday: 'short' })
-    // Lunes de esta semana
-    const diasDesdeL = ['dom','lun','mar','mié','jue','vie','sáb'].indexOf(
-      d.toLocaleDateString('es-EC',{timeZone:tz,weekday:'short'}).toLowerCase().replace('.','')
-    )
-    d.setDate(d.getDate() - (diasDesdeL === 0 ? 6 : diasDesdeL - 1))
-    return d.toLocaleDateString('en-CA', { timeZone: tz }) + 'T00:00:00-05:00'
-  }
-
-  if (periodo === 'mes') {
-    const y = ahora.toLocaleDateString('es-EC', { timeZone: tz, year: 'numeric' }).replace('.','')
-    const m = String(ahora.toLocaleDateString('en-CA', { timeZone: tz }).split('-')[1])
-    return `${ahora.toLocaleDateString('en-CA',{timeZone:tz}).split('-')[0]}-${m}-01T00:00:00-05:00`
-  }
-
-  if (periodo === 'anio') {
-    const y = ahora.toLocaleDateString('en-CA', { timeZone: tz }).split('-')[0]
-    return `${y}-01-01T00:00:00-05:00`
-  }
-
-  return null // todo
-}
-
 export default function Dashboard({ onNavigate }) {
   const [stats,   setStats]   = useState(null)
   const [loading, setLoading] = useState(true)
@@ -59,58 +27,78 @@ export default function Dashboard({ onNavigate }) {
 
   async function fetchStats() {
     setLoading(true)
-    const fechaDesde = getFechaDesde(periodo)
+    const { desde, hasta } = getRangoFechas(periodo)
 
+    // Queries con filtro correcto
     let qV = supabase.from('ventas').select('total,fecha').eq('idempresa', ID_EMPRESA)
     let qI = supabase.from('inventariohistorico').select('total_invertido').eq('idempresa', ID_EMPRESA).eq('tipo_movimiento','entrada')
     let qG = supabase.from('gastos').select('monto').eq('idempresa', ID_EMPRESA)
-    if (fechaDesde) { qV=qV.gte('fecha',fechaDesde); qI=qI.gte('fecha',fechaDesde); qG=qG.gte('fecha',fechaDesde) }
+    let qD = supabase.from('ventasdetalle').select('idproducto,cantidad,precio,productos(nombre)')
+
+    if (desde) {
+      qV = qV.gte('fecha', desde).lte('fecha', hasta)
+      qI = qI.gte('fecha', desde).lte('fecha', hasta)
+      qG = qG.gte('fecha', desde).lte('fecha', hasta)
+      // Para top productos filtrar ventasdetalle por ventas del período
+      const { data: ventasIds } = await supabase.from('ventas').select('idventa').eq('idempresa', ID_EMPRESA).gte('fecha', desde).lte('fecha', hasta)
+      if (ventasIds?.length) {
+        qD = qD.in('idventa', ventasIds.map(v => v.idventa))
+      } else {
+        qD = null // no hay ventas en el período
+      }
+    }
 
     const [
-      {data:ventas},{data:entradas},{data:gastos},
+      {data:ventas}, {data:entradas}, {data:gastos},
       {data:todosProds},
       {count:totalCli},
-      {data:detalle},
       {data:ultimasV},
     ] = await Promise.all([
       qV, qI, qG,
       supabase.from('productos').select('idproducto,cantidad,stock_minimo,discontinuado').eq('idempresa',ID_EMPRESA),
       supabase.from('clientes').select('*',{count:'exact',head:true}).eq('idempresa',ID_EMPRESA),
-      supabase.from('ventasdetalle').select('idproducto,cantidad,precio,productos(nombre)').limit(500),
       supabase.from('ventas').select('idventa,total,fecha,clientes(nombre)').eq('idempresa',ID_EMPRESA).order('fecha',{ascending:false}).limit(5),
     ])
 
-    const prodsActivos = (todosProds||[]).filter(p=>!p.discontinuado)
-    const sinStock     = prodsActivos.filter(p=>p.cantidad===0).length
-    const stockBajo    = prodsActivos.filter(p=>p.cantidad>0&&p.stock_minimo>0&&p.cantidad<=p.stock_minimo).length
+    // Top productos del período
+    let topProductos = []
+    if (qD) {
+      const { data: detalle } = await qD.limit(500)
+      const topMap = {}
+      detalle?.forEach(d => {
+        if (!topMap[d.idproducto]) topMap[d.idproducto] = { nombre: d.productos?.nombre||'?', cantidad: 0 }
+        topMap[d.idproducto].cantidad += d.cantidad
+      })
+      topProductos = Object.values(topMap).sort((a,b) => b.cantidad-a.cantidad).slice(0,5)
+    }
 
+    const prodsActivos = (todosProds||[]).filter(p=>!p.discontinuado)
     const totalVentas  = ventas?.reduce((s,v)=>s+parseFloat(v.total),0)||0
     const totalInv     = entradas?.reduce((s,e)=>s+parseFloat(e.total_invertido||0),0)||0
     const totalGastos  = gastos?.reduce((s,g)=>s+parseFloat(g.monto),0)||0
-    const gananciaNeta = totalVentas - totalInv - totalGastos
-    const cantVentas   = ventas?.length||0
 
-    const topMap={}
-    detalle?.forEach(d=>{
-      if(!topMap[d.idproducto]) topMap[d.idproducto]={nombre:d.productos?.nombre||'?',cantidad:0}
-      topMap[d.idproducto].cantidad+=d.cantidad
+    setStats({
+      totalVentas, totalInv, totalGastos,
+      gananciaNeta: totalVentas - totalInv - totalGastos,
+      cantVentas:   ventas?.length||0,
+      totalProds:   prodsActivos.length,
+      stockBajo:    prodsActivos.filter(p=>p.cantidad>0&&p.stock_minimo>0&&p.cantidad<=p.stock_minimo).length,
+      sinStock:     prodsActivos.filter(p=>p.cantidad===0).length,
+      totalCli,
+      topProductos,
+      ultimasVentas: ultimasV||[],
     })
-    const topProductos=Object.values(topMap).sort((a,b)=>b.cantidad-a.cantidad).slice(0,5)
-
-    setStats({totalVentas,totalInv,totalGastos,gananciaNeta,cantVentas,
-      totalProds:prodsActivos.length,stockBajo,sinStock,totalCli,topProductos,
-      ultimasVentas:ultimasV||[]})
     setLoading(false)
   }
 
-  const periodos=[
+  const periodos = [
     {id:'hoy',    label:'Hoy'},
-    {id:'semana', label:'Semana'},
+    {id:'semana', label:'Esta semana'},
     {id:'mes',    label:'Este mes'},
     {id:'anio',   label:'Este año'},
     {id:'total',  label:'Todo'},
   ]
-  const colors=['#6c63ff','#ff6584','#4caf87','#f5a623','#60b8e0']
+  const colors = ['#6c63ff','#ff6584','#4caf87','#f5a623','#60b8e0']
 
   if (loading) return (
     <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:300,gap:12 }}>
@@ -128,9 +116,11 @@ export default function Dashboard({ onNavigate }) {
       <div style={{ display:'flex',gap:0,marginBottom:16,background:'var(--bg2)',borderRadius:10,padding:4,border:'1px solid var(--border)' }}>
         {periodos.map(p=>(
           <button key={p.id} onClick={()=>setPeriodo(p.id)} style={{
-            flex:1,padding:'7px 4px',borderRadius:8,border:'none',cursor:'pointer',fontSize:11,fontWeight:500,
-            background:periodo===p.id?'var(--accent)':'transparent',
-            color:periodo===p.id?'#fff':'var(--text2)',transition:'all 0.2s',
+            flex:1, padding:'7px 2px', borderRadius:8, border:'none', cursor:'pointer',
+            fontSize:10, fontWeight:500,
+            background: periodo===p.id ? 'var(--accent)' : 'transparent',
+            color:      periodo===p.id ? '#fff' : 'var(--text2)',
+            transition: 'all 0.2s',
           }}>{p.label}</button>
         ))}
       </div>
@@ -141,7 +131,7 @@ export default function Dashboard({ onNavigate }) {
       </div>
       <div className="cards-grid" style={{ marginBottom:16 }}>
         <StatCard icon="👥" label="Clientes" value={s.totalCli||0} color="#60b8e0" onClick={()=>onNavigate('clientes')} />
-        <StatCard icon="📦" label="Productos activos" value={s.totalProds||0} sub={s.sinStock>0?`${s.sinStock} sin stock`:undefined} color="var(--accent)" onClick={()=>onNavigate('productos')} />
+        <StatCard icon="📦" label="Productos" value={s.totalProds||0} sub={s.sinStock>0?`${s.sinStock} sin stock`:undefined} color="var(--accent)" onClick={()=>onNavigate('productos')} />
       </div>
 
       {(s.sinStock>0||s.stockBajo>0) && (
@@ -165,7 +155,7 @@ export default function Dashboard({ onNavigate }) {
         <div className="panel">
           <div className="panel-title">🏆 Más vendidos</div>
           {s.topProductos.length===0
-            ? <p style={{ color:'var(--text2)',fontSize:13 }}>Sin ventas aún</p>
+            ? <p style={{ color:'var(--text2)',fontSize:13 }}>Sin ventas en este período</p>
             : s.topProductos.map((p,i)=>(
               <div className="bar-row" key={i}>
                 <span style={{ width:16,color:'var(--text2)',fontSize:11,flexShrink:0 }}>{i+1}</span>
