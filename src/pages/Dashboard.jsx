@@ -153,7 +153,7 @@ export default function Dashboard({ onNavigate }) {
 
       <div className="two-col">
         <div className="panel">
-          <div className="panel-title">🏆 Más vendidos</div>
+          <div className="panel-title">🏆 Más vendidosss</div>
           {s.topProductos.length===0
             ? <p style={{ color:'var(--text2)',fontSize:13 }}>Sin ventas en este período</p>
             : s.topProductos.map((p,i)=>(
